@@ -1,0 +1,373 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>רשימת מילים אסורות</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Roboto', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #e2e8f0;
+            padding: 40px 20px;
+            min-height: 100vh;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.95);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3));
+            backdrop-filter: blur(10px);
+            animation: slideIn 0.6s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin-bottom: 15px;
+            border: 3px solid #4f46e5;
+            box-shadow: 0 0 15px rgba(79, 70, 70, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover {
+            transform: scale(1.1);
+        }
+
+        h1 {
+            color: #ffffff;
+            font-size: 2.5em;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .search-container {
+            position: relative;
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 14px 45px 14px 20px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 10px;
+            background: rgba(30, 41, 59, 0.8);
+            color: #e2e8f0;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        #searchInput:focus {
+            background: rgba(30, 41, 59, 1);
+            box-shadow: 0 0 12px rgba(79, 70, 229, 0.4);
+        }
+
+        #searchInput::placeholder {
+            color: #94a3b8;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 1.4em;
+            pointer-events: none;
+        }
+
+        .word-list {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+        }
+
+        .word-item {
+            background: linear-gradient(145deg, #1e293b, #334155);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(79, 70, 229, 0.2);
+            text-align: center;
+            font-size: 1.1em;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+            transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+        }
+
+        .word-item:hover {
+            transform: perspective(1000px) rotateX(2deg) rotateY(2deg);
+            box-shadow: 0 8px 24px rgba(79, 70, 229, 0.3);
+            background: linear-gradient(145deg, #334155, #4f46e5);
+        }
+
+        .word-item:active {
+            transform: scale(0.98);
+        }
+
+        .no-results {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 1.4em;
+            margin-top: 40px;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4f46e5;
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-10px);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 25px;
+            }
+
+            .word-list {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 15px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .logo {
+                width: 80px;
+                height: 80px;
+            }
+
+            #searchInput {
+                font-size: 1em;
+                padding: 12px 40px 12px 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .word-list {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.6em;
+            }
+
+            .logo {
+                width: 60px;
+                height: 60px;
+            }
+
+            #searchInput {
+                font-size: 0.9em;
+                padding: 10px 35px 10px 12px;
+            }
+
+            .toast {
+                width: 90%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://cdn.discordapp.com/avatars/1354854745680117790/89ea6f9460dc886f84c52be9385587b7.webp?format=webp&width=115&height=115" alt="Logo" class="logo" />
+            <h1>רשימת מילים אסורות</h1>
+        </div>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="חפש מילה..." />
+            <span class="search-icon">🔍</span>
+        </div>
+        <ul id="wordList" class="word-list">
+            <!-- המילים יתווספו דינמית על ידי JavaScript -->
+        </ul>
+        <div id="noResults" class="no-results" style="display: none;">
+            אין תוצאות לחיפוש זה.
+        </div>
+    </div>
+
+    <script>
+        const badWords = [
+            'אני אזיין אותך', 'יזין', 'יבן זונה', 'זונה', 'יבן שרמוטה',
+            'יבן אלף', 'שרמוטה', 'fuck', 'f*ck', 'f@ck', 'bitch', 'b!tch', 'b1tch',
+            'nigger', 'n!gger', 'n1gger', 'ניגר', 'נ!גר', 'ני*גר', 'יניגר', 'ינ!גר',
+            'xxx', 'x*x*x', 'יא זין', 'י@ זין', 'י* זין', 'זין', 'ז*ן', 'z@in', 'z*in',
+            'יא בן זונה', 'יא ב* זונה', 'ז@נה', 'זונ@', 'זונ$ה', 'לך תמות', 'ל# תמות',
+            'כוסעמק', 'כוסאמק', 'כוס אמק', 'כ0ס אמק', 'כ!ס עמק', 'כוס@מק',
+            'תזדיין', 'ת@זדיין', 'ת*זדיין', 'שיזיינו אותך', 'ש!יזיינו אותך',
+            'תמות', 'שתמות', 'אחושרמוטה', 'אחו$רמוטה', 'נשמה של תחת', 'קח זין',
+            'כוס', 'כ*ס', 'כ@ס', 'קוס', 'ז@ין', 'ח@רא', 'ח#רא', 'ח*רא',
+            'שׁרמוטה', 'שרמווטה', 'שארמוטה', 'בנזונה', 'בּן זוּנה', 'בן ז*נה',
+            'יא הומו', 'הומו', 'הו@מו', 'ה*מו', 'יא כלב', 'יא כל@ב', 'כ#לב',
+            'יא בן של זונה', 'בן של ז@נה', 'חרא', 'ח@רא', 'תמות מחר', 'מת מהעולם',
+            'בן של שרמוטה', 'בן ש@ל שרמוטה',
+            'דביל', 'דב*ל', 'מפגר', 'מפ@גר', 'מ*פגר', 'חלאה', 'יא מגעיל',
+            'איכסה עליך', 'שונא אותך', 'לך לעזאזל', 'לך קבור את עצמך', 'תחנק',
+            'מטומטם', 'מ@טומטם', 'מ*טומטם', 'סתום', 'סתום תפה', 'טמבל',
+            'אמא שלך', 'א@מא שלך', 'א#מא שלך', 'אמא מתה', 'הורים שלך זבל',
+            'ילד מסריח', 'חתיכת זבל', 'מכוער',
+            'אוטיסט',
+            'מוצץ', 'מוצצת', 'תמוצץ', 'תתחיל למצוץ', 'מציצה',
+            'מ*צץ', 'מוצ*צת', 'מ@צצת', 'מצ@צה', 'תמצו*ץ', 'תמוצ@ץ', 'מוצץ אותך',
+            'תחת', 'ת@חת', 'ת*חת',
+            'ציצי', 'צ*צי', 'צ@צי', 'צי@צי',
+            'בולבול', 'ב*לבול', 'בול*בול', 'בול@בול',
+            'שפיך', 'ש*פיך', 'ש@פיך',
+            'זרע', 'ז@רע', 'ז*רע',
+            'ביצית', 'בי@צית', 'בי*צית',
+            'שחלה', 'ש@חלה', 'ש*חלה',
+            'רחם', 'ר@חם', 'ר*חם',
+            'נרתיק', 'נ@רתיק', 'נ*רתיק',
+            'דגדגן', 'ד@גדגן', 'ד*גדגן',
+            'פי הטבעת', 'פי ה@טבעת', 'פי ה*טבעת',
+            'אנוס', 'א@נוס', 'א*נוס',
+            'דילדו', 'ד*ילדו', 'ד@ילדו', 'דילד*ו',
+            'חרמן', 'ח@רמן', 'ח*רמן',
+            'חרמנית', 'ח@רמנית', 'ח*רמנית',
+            'פורנו', 'פו@רנו', 'פ*ורנו',
+            'סקס', 'ס@קס', 'ס*קס',
+            'sex', 's*ex', 's@ex', 'se*x', 'se@x',
+            'פלסטין', 'פלאסטין', 'פ@לסטין', 'פ*לסטין',
+            'palastine', 'p@alastine', 'p*alastine', 'pal@stine', 'pal*stine',
+            'porno', 'p*orno', 'p@orno',
+            'pornhub', 'p*ornhub', 'p@rnhub',
+            'porn', 'p*orn', 'p@rn'
+        ].map(w => w.toLowerCase());
+
+        const wordList = document.getElementById('wordList');
+        const searchInput = document.getElementById('searchInput');
+        const noResults = document.getElementById('noResults');
+
+        function showToast(message) {
+            let toast = document.querySelector('.toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.className = 'toast';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300);
+            }, 2000);
+        }
+
+        function displayWords(words) {
+            wordList.innerHTML = '';
+            if (words.length === 0) {
+                noResults.style.display = 'block';
+                return;
+            }
+            noResults.style.display = 'none';
+            words.forEach(word => {
+                const li = document.createElement('li');
+                li.className = 'word-item';
+                li.textContent = word;
+                li.addEventListener('click', () => {
+                    navigator.clipboard.writeText(word).then(() => {
+                        showToast(`הועתק: ${word}`);
+                    }).catch(() => {
+                        showToast('שגיאה בהעתקה');
+                    });
+                });
+                wordList.appendChild(li);
+            });
+        }
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase().trim();
+            const filteredWords = badWords.filter(word => word.includes(query));
+            displayWords(filteredWords);
+        });
+
+        // Display all words initially
+        displayWords(badWords);
+    </script>
+</body>
+</html>
